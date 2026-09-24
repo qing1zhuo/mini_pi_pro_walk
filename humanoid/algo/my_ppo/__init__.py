@@ -30,12 +30,7 @@
 # Copyright (c) 2024 Beijing RobotEra TECHNOLOGY CO.,LTD. All rights reserved.
 
 
-from humanoid import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
-from .base.legged_robot import LeggedRobot
-
-from .pai.pai_config import PaiCfg, PaiCfgPPO, PaiCfgMyPPO
-from .pai.pai_env import PaiFreeEnv
-
-from humanoid.utils.task_registry import task_registry
-task_registry.register( "pai_ppo", PaiFreeEnv, PaiCfg(), PaiCfgPPO() )
-task_registry.register("pai_my_ppo", PaiFreeEnv, PaiCfg(), PaiCfgMyPPO())
+from .ppo import MyPPO
+from .on_policy_runner import MyOnPolicyRunner
+from .actor_critic import ActorCritic
+from .rollout_storage import RolloutStorage

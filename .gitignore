@@ -1,14 +1,24 @@
-.vscode
-logs/Pai_ppo/Oct*
-logs/Pai_ppo/Nov*
-videos
-wandb
-humanoid/__pycache__
-humanoid/algo/__pycache__
-humanoid/algo/ppo/__pycache__
-humanoid/envs/__pycache__
-humanoid/envs/base/__pycache__
-humanoid/envs/pai/__pycache__
-humanoid/utils/__pycache__
-livelybot_rl_control.egg-info
-pi_rl_control.egg-info/**
+# Editors and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python caches, builds, and local environments
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+build/
+dist/
+.venv/
+venv/
+
+# Experiment tracking and generated media
+wandb/
+videos/
+logs/*/*_*/
+
+# Runtime state dump created when scripts are launched from humanoid/
+/humanoid/train_robot_states.csv

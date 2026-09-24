@@ -269,8 +269,41 @@ class PaiCfgPPO(LeggedRobotCfgPPO):
         max_iterations = 10001  # number of policy updates
 
         # logging
-        save_interval = 100  # check for potential saves every this many iterations
+        save_interval = 1000  # check for potential saves every this many iterations
         experiment_name = "Pai_ppo"
+        run_name = "v1"
+        # load and resume
+        resume = False
+        load_run = -1  # -1 = last run
+        checkpoint = -1  # -1 = last saved model
+        resume_path = None  # updated from load_run and checkpoint
+
+class PaiCfgMyPPO(LeggedRobotCfgPPO):
+    seed = 5
+    runner_class_name = "MyOnPolicyRunner"  # DWLOnPolicyRunner
+
+    class policy:
+        init_noise_std = 1.0
+        actor_hidden_dims = [512, 256, 128]
+        critic_hidden_dims = [768, 256, 128]
+
+    class algorithm(LeggedRobotCfgPPO.algorithm):
+        entropy_coef = 0.001
+        learning_rate = 1e-5
+        num_learning_epochs = 2
+        gamma = 0.994
+        lam = 0.9
+        num_mini_batches = 4
+
+    class runner:
+        policy_class_name = "ActorCritic"
+        algorithm_class_name = "MyPPO"
+        num_steps_per_env = 24  # per iteration
+        max_iterations = 10  # number of policy updates
+
+        # logging
+        save_interval = 10  # check for potential saves every this many iterations
+        experiment_name = "Pai_my_ppo"
         run_name = "v1"
         # load and resume
         resume = False

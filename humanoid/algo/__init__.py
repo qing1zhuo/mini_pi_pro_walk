@@ -32,3 +32,4 @@
 
 from .vec_env import VecEnv
 from .ppo import *
+from .my_ppo import MyPPO, MyOnPolicyRunner

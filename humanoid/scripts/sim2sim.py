@@ -18,7 +18,8 @@ class cmd:
     dyaw = 0.
 
 class mujoco_visual:
-    def __init__(self) -> None:
+    def __init__(self, headless=False) -> None:
+        self.headless = headless
         self.count_lowlevel = 0
         self.stop_event = threading.Event()
         self.vel = [0,0,0]
@@ -103,7 +104,7 @@ class mujoco_visual:
         model.opt.timestep = cfg.sim_config.dt
         data = mujoco.MjData(model)
         mujoco.mj_step(model, data)
-        viewer = mujoco_viewer.MujocoViewer(model, data)
+        viewer = None if self.headless else mujoco_viewer.MujocoViewer(model, data)
 
         def key_callback(window, key, scancode, action, mods):
             # 处理运动控制键
@@ -120,8 +121,9 @@ class mujoco_visual:
             if key == glfw.KEY_M and action == glfw.PRESS:
                 viewer.vopt.flags[mujoco.mjtVisFlag.mjVIS_COM] ^= 1
 
-        glfw.set_key_callback(viewer.window, key_callback)
-        self.window = viewer.window
+        if not self.headless:
+            glfw.set_key_callback(viewer.window, key_callback)
+            self.window = viewer.window
 
         target_q = np.zeros((cfg.env.num_actions), dtype=np.double)
         action = np.zeros((cfg.env.num_actions), dtype=np.double)
@@ -131,14 +133,15 @@ class mujoco_visual:
             hist_obs.append(np.zeros([1, cfg.env.num_single_obs], dtype=np.double))
 
         for _ in tqdm(range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)), desc="Simulating..."):
-            if glfw.window_should_close(self.window):
+            if not self.headless and glfw.window_should_close(self.window):
                 break
 
-            # 运动控制处理（新增WSAD）
-            cmd.vx = 0.5 * (self.key_states[glfw.KEY_UP] or self.key_states[glfw.KEY_W])
-            cmd.vx -= 0.5 * (self.key_states[glfw.KEY_DOWN] or self.key_states[glfw.KEY_S])
-            cmd.vy = 0.5 * (self.key_states[glfw.KEY_A] - self.key_states[glfw.KEY_D])
-            cmd.dyaw = 1.0 * (self.key_states[glfw.KEY_LEFT] - self.key_states[glfw.KEY_RIGHT])
+            if not self.headless:
+                # 运动控制处理（新增WSAD）
+                cmd.vx = 0.5 * (self.key_states[glfw.KEY_UP] or self.key_states[glfw.KEY_W])
+                cmd.vx -= 0.5 * (self.key_states[glfw.KEY_DOWN] or self.key_states[glfw.KEY_S])
+                cmd.vy = 0.5 * (self.key_states[glfw.KEY_A] - self.key_states[glfw.KEY_D])
+                cmd.dyaw = 1.0 * (self.key_states[glfw.KEY_LEFT] - self.key_states[glfw.KEY_RIGHT])
 
             q, dq, quat, v, omega, gvec = self.get_obs(data)
             q = q[-cfg.env.num_actions:]
@@ -181,16 +184,18 @@ class mujoco_visual:
             for i in range(6):
                 tau[i], tau[i+6] = tau[i+6], tau[i]
             data.ctrl = tau
-            
+
             mujoco.mj_step(model, data)
 
-            time.sleep(0.001)#步伐频率加快建议设置0.001，步伐频率加快建议设置0.01
-            if self.count_lowlevel % cfg.sim_config.decimation == 0: 
-                viewer.render()
+            if not self.headless:
+                time.sleep(0.001)#步伐频率加快建议设置0.001，步伐频率加快建议设置0.01
+                if self.count_lowlevel % cfg.sim_config.decimation == 0:
+                    viewer.render()
             self.count_lowlevel += 1
-            
+
         self.stop_event.set()
-        viewer.close()
+        if viewer is not None:
+            viewer.close()
 
 if __name__ == '__main__':
     import argparse
@@ -200,6 +205,7 @@ if __name__ == '__main__':
                         help='Run to load from.',
                         default=f"{LEGGED_GYM_ROOT_DIR}/logs/Pai_ppo/exported/policies/policy_1.pt")
     parser.add_argument('--terrain', action='store_true', help='terrain or plane')
+    parser.add_argument('--headless', action='store_true', help='Run without GLFW viewer')
     args = parser.parse_args()
 
     class Sim2simCfg(PaiCfg):
@@ -214,18 +220,23 @@ if __name__ == '__main__':
             kds = [1.8,0.8,0.8,1.8,1.8,0.6]*(2)
             tau_limit = 40. * np.ones(12, dtype=np.double)
 
-    if not glfw.init():
-        raise RuntimeError("Could not initialize GLFW")
+    policy = torch.jit.load(args.load_model)
+    visualizer = mujoco_visual(headless=args.headless)
 
-    try:
-        policy = torch.jit.load(args.load_model)
-        visualizer = mujoco_visual()
-        matplotlib_thread = threading.Thread(target=visualizer.plot_thread)
-        mujoco_thread = threading.Thread(target=visualizer.run_mujoco, args=(policy, Sim2simCfg()))
-        matplotlib_thread.start()
-        mujoco_thread.start()
-        matplotlib_thread.join()
-        mujoco_thread.join()
-    finally:
-        glfw.terminate()
-    print("Simulation completed. GLFW terminated.")
+    if args.headless:
+        visualizer.run_mujoco(policy, Sim2simCfg())
+        print("Headless simulation completed.")
+    else:
+        if not glfw.init():
+            raise RuntimeError("Could not initialize GLFW")
+
+        try:
+            matplotlib_thread = threading.Thread(target=visualizer.plot_thread)
+            mujoco_thread = threading.Thread(target=visualizer.run_mujoco, args=(policy, Sim2simCfg()))
+            matplotlib_thread.start()
+            mujoco_thread.start()
+            matplotlib_thread.join()
+            mujoco_thread.join()
+        finally:
+            glfw.terminate()
+        print("Simulation completed. GLFW terminated.")
