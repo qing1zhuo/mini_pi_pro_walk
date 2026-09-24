@@ -33,9 +33,11 @@
 from humanoid import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
 from .base.legged_robot import LeggedRobot
 
-from .pai.pai_config import PaiCfg, PaiCfgPPO, PaiCfgMyPPO
+from .pai.pai_config import PaiCfg, PaiCfgPPO, PaiCfgMyPPO, PaiCfgStage0
 from .pai.pai_env import PaiFreeEnv
 
 from humanoid.utils.task_registry import task_registry
 task_registry.register( "pai_ppo", PaiFreeEnv, PaiCfg(), PaiCfgPPO() )
 task_registry.register("pai_my_ppo", PaiFreeEnv, PaiCfg(), PaiCfgMyPPO())
+# 阶段 0 与标准 PPO 共用环境和 checkpoint，只把评估设置集中到 PaiCfgStage0。
+task_registry.register("pai_stage0", PaiFreeEnv, PaiCfgStage0(), PaiCfgPPO())
