@@ -348,10 +348,10 @@ class PaiCfgStage0(PaiCfg):
 
     class noise(PaiCfg.noise):
         # 观测噪声总开关：名义、摩擦和推力单因素测试设 False；噪声测试设 True。
-        add_noise = False
+        add_noise = True
         # 各观测分量噪声的总倍率；只有 add_noise=True 时生效。
         # 建议从 0.1 -> 0.3 -> 0.5 逐级测试；具体分量比例继承 PaiCfg.noise_scales。
-        noise_level = 0.0
+        noise_level = 0.6
 
     class domain_rand(PaiCfg.domain_rand):
         # 建议保持 True，即使做固定摩擦评估也用相同上下界显式赋值，
@@ -360,13 +360,13 @@ class PaiCfgStage0(PaiCfg):
         # 机器人碰撞体摩擦采样范围。
         # 名义评估：[0.6, 0.6]；单点扫描可改成 [0.4, 0.4]/[0.8, 0.8]；
         # 范围压力测试可从 [0.5, 0.8] 开始，再逐步扩到 [0.4, 1.0]。
-        friction_range = [0.6, 0.6]
+        friction_range = [0.4, 1.0]
 
         # base 质量随机化开关：Stage0 默认 False；只有质量单因素/组合测试才设 True。
-        randomize_base_mass = False
+        randomize_base_mass = True
         # 在 URDF base 质量上增加的 kg 范围，仅在 randomize_base_mass=True 时生效。
         # 建议从较小范围（如 [-0.3, 0.3]）开始，不要与新摩擦范围同时首次引入。
-        added_mass_range = [0.0, 0.0]
+        added_mass_range = [-0.3, 0.3]
 
         # play.py 已负责可复现的定时推力，因此 Stage0 应保持 False，避免自动推力叠加。
         # 是否启用评估推力只修改 evaluation.scheduled_push。
@@ -381,7 +381,7 @@ class PaiCfgStage0(PaiCfg):
 
         # 乘性动作噪声强度：action += scale * N(0,1) * action。
         # 名义评估设 0；动作噪声单因素测试建议 0.01 -> 0.02 -> 0.05。
-        dynamic_randomization = 0.0
+        dynamic_randomization = 0.02
         # 动作延迟总开关：名义及其他单因素评估设 False；延迟测试才设 True。
         randomize_action_delay = False
         # 当前动作与上一帧动作的混合系数范围，仅在开关为 True 时生效。
