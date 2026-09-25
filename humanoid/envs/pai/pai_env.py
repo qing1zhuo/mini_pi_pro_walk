@@ -240,16 +240,9 @@ class PaiFreeEnv(LeggedRobot):
     def step(self, actions):
         if self.cfg.env.use_ref_actions:
             actions += self.ref_action
-        # 动作延迟使用独立配置开关；Stage0 关闭后不会再隐含混合上一帧动作。
-        if self.cfg.domain_rand.randomize_action_delay:
-            delay = torch_rand_float(
-                self.cfg.domain_rand.action_delay_range[0],
-                self.cfg.domain_rand.action_delay_range[1],
-                (self.num_envs, 1),
-                device=self.device,
-            )
-            actions = (1 - delay) * actions + delay * self.actions
-        # 乘性动作噪声与动作延迟分开控制，便于 Stage0 做单因素评估。
+        # dynamic randomization
+        delay = torch.rand((self.num_envs, 1), device=self.device)
+        actions = (1 - delay) * actions + delay * self.actions
         actions += (
             self.cfg.domain_rand.dynamic_randomization
             * torch.randn_like(actions)

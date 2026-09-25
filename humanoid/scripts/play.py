@@ -64,38 +64,19 @@ COMMANDS = (
     ("forward_turn_right", 0.3, 0.0, -np.pi / 2),
 )
 
-# 非 Stage0 任务沿用原 play.py 的导出和录像行为；PaiCfgStage0 可覆盖二者。
-DEFAULT_EXPORT_POLICY = True
-DEFAULT_RENDER = True
-
 
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
-    evaluation_cfg = getattr(env_cfg, "evaluation", None)
-    if evaluation_cfg is not None:
-        # pai_stage0 的所有评估变量来自 PaiCfgStage0；后续无需再修改 play.py。
-        commands = evaluation_cfg.cases
-        scheduled_push = evaluation_cfg.scheduled_push
-        render = evaluation_cfg.render
-        export_policy = evaluation_cfg.export_policy
-        default_seed = evaluation_cfg.seed
-    else:
-        # 保留 pai_ppo/pai_my_ppo 既有的压力评估行为，避免改变原任务结果。
-        env_cfg.env.num_envs = min(env_cfg.env.num_envs, 64)
-        env_cfg.sim.max_gpu_contact_pairs = 2**10
-        env_cfg.terrain.mesh_type = "plane"
-        env_cfg.noise.add_noise = True
-        env_cfg.noise.curriculum = False
-        env_cfg.noise.noise_level = 0.5
-        env_cfg.commands.resampling_time = env_cfg.env.episode_length_s + 1.0
-        env_cfg.domain_rand.randomize_friction = True
-        env_cfg.domain_rand.push_robots = False
-        commands = COMMANDS
-        scheduled_push = True
-        render = DEFAULT_RENDER
-        export_policy = DEFAULT_EXPORT_POLICY
-        default_seed = 123145
-    seed = args.seed if args.seed is not None else default_seed
+    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 64)
+    env_cfg.sim.max_gpu_contact_pairs = 2**10
+    env_cfg.terrain.mesh_type = "plane"
+    env_cfg.noise.add_noise = True
+    env_cfg.noise.curriculum = False
+    env_cfg.noise.noise_level = 0.5
+    env_cfg.commands.resampling_time = env_cfg.env.episode_length_s + 1.0
+    env_cfg.domain_rand.randomize_friction = True
+    env_cfg.domain_rand.push_robots = False  # apply scheduled pushes ourselves
+    seed = args.seed if args.seed is not None else 123145
     env_cfg.seed = train_cfg.seed = seed
     _, train_cfg = update_cfg_from_args(None, train_cfg, args)
     train_cfg.runner.resume = True
@@ -108,7 +89,7 @@ def play(args):
     ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
     policy = ppo_runner.get_inference_policy(device=env.device)
 
-    if export_policy:
+    if EXPORT_POLICY:
         path = os.path.join(log_root, "exported", "policies")
         export_policy_as_jit(ppo_runner.alg.actor_critic, path)
         export_policy_to_onnx(ppo_runner.alg.actor_critic, path)
@@ -118,7 +99,7 @@ def play(args):
                               datetime.now().strftime("%Y%m%d_%H%M%S_%f") + f"_seed{seed}")
     os.makedirs(output_dir, exist_ok=True)
     video_dir = os.path.join(output_dir, "videos")
-    if render:
+    if RENDER:
         os.makedirs(video_dir, exist_ok=True)
     env.record_eval_rewards = True
     friction = env.friction_coeffs.view(-1).tolist()
@@ -132,7 +113,7 @@ def play(args):
     all_rows = []
 
     camera = None
-    if render:
+    if RENDER:
         camera = env.camera_handle  # BaseTask creates this sensor, including in headless mode.
         offset = gymapi.Vec3(1, -1, 0.5)
         rotation = gymapi.Quat.from_axis_angle(gymapi.Vec3(-0.3, 0.2, 1), np.deg2rad(135))
@@ -148,7 +129,7 @@ def play(args):
         pushes = csv.writer(pushes_file)
         pushes.writerow(["case", "step", "env_id", "active", "push_vx", "push_vy", "push_wx", "push_wy", "push_wz"])
 
-        for name, vx, vy, heading in commands:
+        for name, vx, vy, heading in COMMANDS:
             set_seed(seed + 1)  # same initial joint/phase/noise samples in every case
             env.reset_idx(torch.arange(env.num_envs, device=env.device))
             env.last_root_vel.zero_()
@@ -173,7 +154,7 @@ def play(args):
             errors = torch.zeros(env.num_envs, 4, device=env.device)
             terms = {}
             video = None
-            if render:
+            if RENDER:
                 video_path = os.path.join(video_dir, name + ".mp4")
                 video = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*"mp4v"),
                                         1.0 / env.dt, (720, 480))
@@ -181,8 +162,7 @@ def play(args):
                     raise RuntimeError("Cannot open video output: " + video_path)
             try:
                 for step in tqdm(range(int(env.max_episode_length) + 2), desc=name):
-                    # Stage0 名义评估关闭 scheduled_push；推力测试只改 Config 开关。
-                    if scheduled_push and step % push_interval == 0:
+                    if step % push_interval == 0:
                         with torch.random.fork_rng(devices=[env.sim_device_id] if env.device != "cpu" else []):
                             torch.manual_seed(seed + 100000 + step // push_interval)
                             env._push_robots()
@@ -249,21 +229,15 @@ def play(args):
         report.write(f"Episode limit: {env.cfg.env.episode_length_s}s; policy dt: {env.dt}s\n")
         report.write(f"Friction range: {env.cfg.domain_rand.friction_range}; fixed per env, see episodes.csv\n")
         report.write(f"Base mass range: {env.cfg.domain_rand.added_mass_range}; fixed per env, see episodes.csv\n")
-        if scheduled_push:
-            report.write(f"Push schedule: step 0, then every {env.cfg.domain_rand.push_interval_s}s; ")
-            report.write(f"velocity overwrite bounds: xy={env.cfg.domain_rand.max_push_vel_xy}, ")
-            report.write(f"angular={env.cfg.domain_rand.max_push_ang_vel}\n")
-        else:
-            report.write("Push schedule: disabled\n")
+        report.write(f"Push schedule: step 0, then every {env.cfg.domain_rand.push_interval_s}s; velocity overwrite bounds: ")
+        report.write(f"xy={env.cfg.domain_rand.max_push_vel_xy}, angular={env.cfg.domain_rand.max_push_ang_vel}\n")
         report.write("Push samples and active status: pushes.csv; same samples at each scheduled step for every case.\n")
-        report.write(f"Observation noise: {env.cfg.noise.add_noise}; ")
-        report.write(f"action delay: {env.cfg.domain_rand.randomize_action_delay}; ")
-        report.write(f"action noise scale: {env.cfg.domain_rand.dynamic_randomization}\n")
+        report.write("Other stochastic effects: observation noise and action delay/noise; reset seed is identical for every case.\n")
         report.write("Reward columns are weighted episode sums before total-reward clipping; they need not sum to total_reward.\n")
         report.write("Timeout=1 means the episode reached its time limit; timeout=0 means early termination.\n")
         report.write("GPU physics may not reproduce bit for bit across runs.\n")
-        report.write(f"Videos: {video_dir if render else 'disabled'}\n\n")
-        for name, vx, vy, heading in commands:
+        report.write(f"Videos: {video_dir if RENDER else 'disabled'}\n\n")
+        for name, vx, vy, heading in COMMANDS:
             rows = [row for row in all_rows if row["case"] == name]
             report.write(f"{name}: vx={vx}, vy={vy}, target_heading={heading:.3f}; ")
             report.write(f"timeout_rate={mean(row['timeout'] for row in rows):.3f}, ")
@@ -276,5 +250,7 @@ def play(args):
 
 
 if __name__ == "__main__":
+    EXPORT_POLICY = True
+    RENDER = True
     args = get_args()
     play(args)

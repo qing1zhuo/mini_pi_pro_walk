@@ -203,9 +203,6 @@ class PaiCfg(LeggedRobotCfg):
         # 动作再叠加 0.02 × N(0,1) × 动作本身的乘性噪声。
         # PaiFreeEnv.step() 还用随机系数混合本步动作与上步动作以模拟延迟。
         dynamic_randomization = 0.02
-        # 标准训练保持原有的随机动作延迟；阶段配置可以单独关闭或调整范围。
-        randomize_action_delay = True
-        action_delay_range = [0.0, 1.0]
 
     class commands(LeggedRobotCfg.commands):
         # 内部顺序：[机身 x 速度, 机身 y 速度, 偏航角速度, 世界系目标朝向]。
@@ -287,120 +284,6 @@ class PaiCfg(LeggedRobotCfg):
         clip_actions = 18.0
 
 
-class PaiCfgStage0(PaiCfg):
-    """阶段 0 的单一评估配置。
-
-    阶段 0 后续需要切换摩擦、推力、噪声或测试指令时，只修改本类；
-    play.py 会读取 evaluation 中的开关和用例，不再为该任务硬编码随机化。
-    默认值表示名义评估：固定平地、固定摩擦、无噪声、无推力、无动作延迟。
-    """
-
-    class evaluation:
-        # 默认随机种子：同一组对照保持不变；做多 seed 验证时改成其他整数。
-        # 命令行 --seed 的优先级更高，可在不改文件的情况下临时覆盖。
-        seed = 123145
-        # 是否由 play.py 按 push_interval_s 手工施加推力。
-        # 名义/摩擦/噪声单因素评估设 False；推力与组合压力评估设 True。
-        # 设 True 时还必须把 max_push_vel_xy/max_push_ang_vel 改成非零值。
-        scheduled_push = False
-        # 是否录制每个 case 的 MP4；纯指标评估可设 False 以节省时间和显存。
-        render = True
-        # 是否导出 policy_torch.pt 和 policy_onnx.onnx。
-        # 只做评估时可设 False；设 True 会更新共享 exported/policies 目录中的文件。
-        export_policy = True
-        # 固定测试用例，格式为：(名称, 机身 x 速度, 机身 y 速度, 世界系目标朝向)。
-        # 速度单位 m/s，heading 单位 rad；最后一项不是直接的 yaw rate。
-        # 可增删 case 或修改速度档位，但对照实验应保持同一组 cases。
-        cases = (
-            ("stand", 0.0, 0.0, 0.0),
-            ("forward_slow", 0.3, 0.0, 0.0),
-            ("forward_fast", 0.6, 0.0, 0.0),
-            ("backward", -0.3, 0.0, 0.0),
-            ("left", 0.0, 0.3, 0.0),
-            ("right", 0.0, -0.3, 0.0),
-            ("turn_left", 0.0, 0.0, 1.5707963267948966),
-            ("turn_right", 0.0, 0.0, -1.5707963267948966),
-            ("turn_around", 0.0, 0.0, 3.141592653589793),
-            ("forward_turn_left", 0.3, 0.0, 1.5707963267948966),
-            ("forward_turn_right", 0.3, 0.0, -1.5707963267948966),
-        )
-
-    class env(PaiCfg.env):
-        # 并行评估环境数：RTX 2080 Ti 建议 32～64；增大可增加样本数但占用更多显存。
-        # 命令行 --num_envs 仍可临时覆盖该值。
-        num_envs = 64
-        # 单个 case 的最长持续时间，单位 s；改变后应同步保证
-        # commands.resampling_time 大于该值，避免固定指令在回合中途被重采样。
-        episode_length_s = 12
-
-    class terrain(PaiCfg.terrain):
-        # Stage0 建议始终使用 "plane"；改成 heightfield/trimesh 会改变任务难度，
-        # 应作为后续独立实验，不与摩擦、推力等单因素评估混在一起。
-        mesh_type = "plane"
-        # Stage0 保持 False；True 会随训练进度改变地形，不适合固定 checkpoint 评估。
-        curriculum = False
-        # Stage0 保持 False；True 会改变观测内容/维度，现有策略不能直接兼容。
-        measure_heights = False
-        # 地面材质摩擦。名义值保持 0.6；测试地面材料时可同时改为目标实测值。
-        # 机器人碰撞体摩擦由下方 domain_rand.friction_range 单独控制。
-        static_friction = 0.6
-        dynamic_friction = 0.6
-
-    class noise(PaiCfg.noise):
-        # 观测噪声总开关：名义、摩擦和推力单因素测试设 False；噪声测试设 True。
-        add_noise = True
-        # 各观测分量噪声的总倍率；只有 add_noise=True 时生效。
-        # 建议从 0.1 -> 0.3 -> 0.5 逐级测试；具体分量比例继承 PaiCfg.noise_scales。
-        noise_level = 0.6
-
-    class domain_rand(PaiCfg.domain_rand):
-        # 建议保持 True，即使做固定摩擦评估也用相同上下界显式赋值，
-        # 避免设 False 后机器人碰撞体沿用 URDF 中可能不同的摩擦值。
-        randomize_friction = True
-        # 机器人碰撞体摩擦采样范围。
-        # 名义评估：[0.6, 0.6]；单点扫描可改成 [0.4, 0.4]/[0.8, 0.8]；
-        # 范围压力测试可从 [0.5, 0.8] 开始，再逐步扩到 [0.4, 1.0]。
-        friction_range = [0.4, 1.0]
-
-        # base 质量随机化开关：Stage0 默认 False；只有质量单因素/组合测试才设 True。
-        randomize_base_mass = True
-        # 在 URDF base 质量上增加的 kg 范围，仅在 randomize_base_mass=True 时生效。
-        # 建议从较小范围（如 [-0.3, 0.3]）开始，不要与新摩擦范围同时首次引入。
-        added_mass_range = [-0.3, 0.3]
-
-        # play.py 已负责可复现的定时推力，因此 Stage0 应保持 False，避免自动推力叠加。
-        # 是否启用评估推力只修改 evaluation.scheduled_push。
-        push_robots = False
-        # 手工推力之间的时间间隔，单位 s；可用 8 -> 4 -> 2 逐渐增加扰动频率。
-        push_interval_s = 4
-        # x/y 最大速度覆盖扰动，单位 m/s。名义评估设 0；推力测试可从 0.05、0.1
-        # 逐步增至 0.2。该实现改写 base 速度，并不等同于施加真实外力。
-        max_push_vel_xy = 0.0
-        # x/y/z 最大角速度覆盖扰动，单位 rad/s。名义评估设 0；建议从 0.1 逐步测试。
-        max_push_ang_vel = 0.0
-
-        # 乘性动作噪声强度：action += scale * N(0,1) * action。
-        # 名义评估设 0；动作噪声单因素测试建议 0.01 -> 0.02 -> 0.05。
-        dynamic_randomization = 0.02
-        # 动作延迟总开关：名义及其他单因素评估设 False；延迟测试才设 True。
-        randomize_action_delay = False
-        # 当前动作与上一帧动作的混合系数范围，仅在开关为 True 时生效。
-        # 0 表示完全执行当前动作，1 表示完全执行上一帧动作；建议从 [0.0, 0.1]
-        # 开始，再测试 [0.0, 0.3]/[0.0, 0.5]，不要一开始直接使用 [0.0, 1.0]。
-        action_delay_range = [0.0, 0.0]
-
-    class commands(PaiCfg.commands):
-        # 指令自动重采样间隔，单位 s。Stage0 的指令由 evaluation.cases 固定写入，
-        # 因此该值必须大于 env.episode_length_s；若回合改成 20 s，可相应设为 21 s。
-        resampling_time = 13.0
-
-    class sim(PaiCfg.sim):
-        # PhysX GPU 最大接触对容量。数值越大越占显存，但太小会出现接触缓冲错误。
-        # 64 个平地环境通常可从 2**10～2**12 测试；保留 2**23 最稳妥但更占显存。
-        # 只在出现显存压力时逐级降低，并确认接触、终止和奖励结果没有变化。
-        max_gpu_contact_pairs = 2**23
-
-
 # 训练任务配置
 class PaiCfgPPO(LeggedRobotCfgPPO):
     """标准 pai_ppo 任务的网络、PPO 超参数和训练调度。"""
@@ -445,15 +328,6 @@ class PaiCfgPPO(LeggedRobotCfgPPO):
         load_run = -1  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and checkpoint
-
-
-class PaiCfgStage0PPO(PaiCfgPPO):
-    """Stage0 独立日志配置；网络和 PPO 参数全部继承标准基线。"""
-
-    class runner(PaiCfgPPO.runner):
-        # pai_stage0 的训练、续训和评估统一使用 logs/Pai_stage0/。
-        experiment_name = "Pai_stage0"
-        run_name = "stage0"
 
 
 class PaiCfgMyPPO(LeggedRobotCfgPPO):

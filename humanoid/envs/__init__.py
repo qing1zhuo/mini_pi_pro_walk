@@ -33,17 +33,9 @@
 from humanoid import LEGGED_GYM_ROOT_DIR, LEGGED_GYM_ENVS_DIR
 from .base.legged_robot import LeggedRobot
 
-from .pai.pai_config import (
-    PaiCfg,
-    PaiCfgPPO,
-    PaiCfgMyPPO,
-    PaiCfgStage0,
-    PaiCfgStage0PPO,
-)
+from .pai.pai_config import PaiCfg, PaiCfgPPO, PaiCfgMyPPO
 from .pai.pai_env import PaiFreeEnv
 
 from humanoid.utils.task_registry import task_registry
 task_registry.register( "pai_ppo", PaiFreeEnv, PaiCfg(), PaiCfgPPO() )
 task_registry.register("pai_my_ppo", PaiFreeEnv, PaiCfg(), PaiCfgMyPPO())
-# 阶段 0 继承标准 PPO 参数，但使用独立的 logs/Pai_stage0/ 保存训练与评估产物。
-task_registry.register("pai_stage0", PaiFreeEnv, PaiCfgStage0(), PaiCfgStage0PPO())
