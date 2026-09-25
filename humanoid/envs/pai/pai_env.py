@@ -37,6 +37,7 @@ import torch
 from humanoid.envs import LeggedRobot
 from humanoid.envs.pai.pai_config import PaiCfg
 from humanoid.utils.terrain import HumanoidTerrain
+from humanoid.utils.math import wrap_to_pi
 
 # from collections import deque
 
@@ -240,15 +241,167 @@ class PaiFreeEnv(LeggedRobot):
     def step(self, actions):
         if self.cfg.env.use_ref_actions:
             actions += self.ref_action
-        # dynamic randomization
-        delay = torch.rand((self.num_envs, 1), device=self.device)
-        actions = (1 - delay) * actions + delay * self.actions
+        if getattr(self.cfg.domain_rand, "randomize_action_delay", True):
+            delay_min, delay_max = self.cfg.domain_rand.action_delay_range
+            delay = torch_rand_float(
+                delay_min,
+                delay_max,
+                (self.num_envs, 1),
+                device=self.device,
+            )
+            actions = (1.0 - delay) * actions + delay * self.actions
         actions += (
             self.cfg.domain_rand.dynamic_randomization
             * torch.randn_like(actions)
             * actions
         )
         return super().step(actions)
+
+    def _resample_commands(self, env_ids):
+        """Sample Stage 1 command categories without changing legacy tasks."""
+        if len(env_ids) == 0:
+            return
+        if getattr(self.cfg.commands, "sampling_mode", "uniform") != "categorical":
+            return super()._resample_commands(env_ids)
+
+        cfg = self.cfg.commands
+        count = len(env_ids)
+        probabilities = torch.tensor(
+            [
+                cfg.stand_probability,
+                cfg.longitudinal_probability,
+                cfg.turn_probability,
+                cfg.forward_turn_probability,
+                cfg.lateral_probability,
+            ],
+            dtype=torch.float,
+            device=self.device,
+        )
+        if torch.any(probabilities < 0) or not torch.isclose(
+            probabilities.sum(),
+            torch.tensor(1.0, device=self.device),
+            atol=1e-6,
+        ):
+            raise ValueError("Stage 1 command category probabilities must be non-negative and sum to 1")
+        if not 0.0 <= cfg.continuous_fraction <= 1.0:
+            raise ValueError("continuous_fraction must be in [0, 1]")
+
+        categories = torch.multinomial(probabilities, count, replacement=True)
+        self.commands[env_ids] = 0.0
+        forward = quat_apply(self.root_states[env_ids, 3:7], self.forward_vec[env_ids])
+        current_heading = torch.atan2(forward[:, 1], forward[:, 0])
+        self.commands[env_ids, 3] = current_heading
+        use_continuous = torch.rand(count, device=self.device) < cfg.continuous_fraction
+
+        def _ids(category, continuous=None):
+            mask = categories == category
+            if continuous is not None:
+                mask &= use_continuous if continuous else ~use_continuous
+            return env_ids[mask], mask
+
+        def _choice(values, weights, size):
+            values_tensor = torch.tensor(values, dtype=torch.float, device=self.device)
+            weights_tensor = torch.tensor(weights, dtype=torch.float, device=self.device)
+            if len(values_tensor) != len(weights_tensor) or torch.any(weights_tensor < 0):
+                raise ValueError("Stage 1 command values and weights are invalid")
+            if not torch.isclose(weights_tensor.sum(), torch.tensor(1.0, device=self.device), atol=1e-6):
+                raise ValueError("Stage 1 command weights must sum to 1")
+            return values_tensor[torch.multinomial(weights_tensor, size, replacement=True)]
+
+        discrete_ids, _ = _ids(1, False)
+        if len(discrete_ids):
+            self.commands[discrete_ids, 0] = _choice(
+                cfg.longitudinal_speeds, cfg.longitudinal_weights, len(discrete_ids)
+            )
+        continuous_ids, _ = _ids(1, True)
+        if len(continuous_ids):
+            forward_mask = torch.rand(len(continuous_ids), device=self.device) < 0.5
+            speeds = torch.empty(len(continuous_ids), device=self.device)
+            if torch.any(forward_mask):
+                low, high = cfg.continuous_forward_speed_range
+                speeds[forward_mask] = torch_rand_float(
+                    low, high, (int(forward_mask.sum()), 1), device=self.device
+                ).squeeze(1)
+            if torch.any(~forward_mask):
+                low, high = cfg.continuous_backward_speed_range
+                speeds[~forward_mask] = -torch_rand_float(
+                    low, high, (int((~forward_mask).sum()), 1), device=self.device
+                ).squeeze(1)
+            speeds[torch.abs(speeds) < cfg.command_deadzone] = 0.0
+            self.commands[continuous_ids, 0] = speeds
+
+        discrete_ids, discrete_mask = _ids(4, False)
+        if len(discrete_ids):
+            self.commands[discrete_ids, 1] = _choice(
+                cfg.lateral_speeds, cfg.lateral_weights, len(discrete_ids)
+            )
+        continuous_ids, _ = _ids(4, True)
+        if len(continuous_ids):
+            low, high = cfg.continuous_lateral_speed_range
+            speeds = torch_rand_float(
+                low, high, (len(continuous_ids), 1), device=self.device
+            ).squeeze(1)
+            signs = torch.where(
+                torch.rand(len(continuous_ids), device=self.device) < 0.5,
+                -torch.ones_like(speeds),
+                torch.ones_like(speeds),
+            )
+            speeds *= signs
+            speeds[torch.abs(speeds) < cfg.command_deadzone] = 0.0
+            self.commands[continuous_ids, 1] = speeds
+
+        discrete_ids, discrete_mask = _ids(2, False)
+        if len(discrete_ids):
+            offsets = _choice(
+                cfg.turn_heading_offsets, cfg.turn_heading_weights, len(discrete_ids)
+            )
+            self.commands[discrete_ids, 3] = current_heading[discrete_mask] + offsets
+        continuous_ids, continuous_mask = _ids(2, True)
+        if len(continuous_ids):
+            low, high = cfg.continuous_heading_offset_range
+            offsets = torch_rand_float(
+                low, high, (len(continuous_ids), 1), device=self.device
+            ).squeeze(1)
+            offsets *= torch.where(
+                torch.rand(len(continuous_ids), device=self.device) < 0.5,
+                -torch.ones_like(offsets),
+                torch.ones_like(offsets),
+            )
+            self.commands[continuous_ids, 3] = current_heading[continuous_mask] + offsets
+
+        discrete_ids, discrete_mask = _ids(3, False)
+        if len(discrete_ids):
+            offsets = _choice(
+                cfg.forward_turn_heading_offsets,
+                [1.0 / len(cfg.forward_turn_heading_offsets)] * len(cfg.forward_turn_heading_offsets),
+                len(discrete_ids),
+            )
+            self.commands[discrete_ids, 0] = cfg.forward_turn_speed
+            self.commands[discrete_ids, 3] = current_heading[discrete_mask] + offsets
+        continuous_ids, continuous_mask = _ids(3, True)
+        if len(continuous_ids):
+            low, high = cfg.continuous_heading_offset_range
+            offsets = torch_rand_float(
+                low, high, (len(continuous_ids), 1), device=self.device
+            ).squeeze(1)
+            offsets *= torch.where(
+                torch.rand(len(continuous_ids), device=self.device) < 0.5,
+                -torch.ones_like(offsets),
+                torch.ones_like(offsets),
+            )
+            self.commands[continuous_ids, 0] = cfg.forward_turn_speed
+            self.commands[continuous_ids, 3] = current_heading[continuous_mask] + offsets
+
+        self.commands[env_ids, 3] = wrap_to_pi(self.commands[env_ids, 3])
+        if self.cfg.commands.heading_command:
+            self.commands[env_ids, 2] = torch.clamp(
+                0.5
+                * wrap_to_pi(
+                    self.commands[env_ids, 3] - current_heading
+                ),
+                -1.0,
+                1.0,
+            )
 
     def compute_observations(self):
         # print("feet_indices", self.feet_indices)

@@ -203,6 +203,9 @@ class PaiCfg(LeggedRobotCfg):
         # 动作再叠加 0.02 × N(0,1) × 动作本身的乘性噪声。
         # PaiFreeEnv.step() 还用随机系数混合本步动作与上步动作以模拟延迟。
         dynamic_randomization = 0.02
+        # 保持原任务的逐环境随机动作延迟；Stage 1 会显式关闭。
+        randomize_action_delay = True
+        action_delay_range = [0.0, 1.0]
 
     class commands(LeggedRobotCfg.commands):
         # 内部顺序：[机身 x 速度, 机身 y 速度, 偏航角速度, 世界系目标朝向]。
@@ -282,6 +285,83 @@ class PaiCfg(LeggedRobotCfg):
         # 送入网络的观测与送入 PD 前的动作分别裁剪到 ±18。
         clip_observations = 18.0
         clip_actions = 18.0
+
+
+class PaiCfgStage1(PaiCfg):
+    """Stage 1 环境配置；默认值对应 A1 离散指令训练。"""
+
+    class commands(PaiCfg.commands):
+        sampling_mode = "categorical"
+        resampling_time = 8.0
+        command_deadzone = 0.05
+        continuous_fraction = 0.0
+
+        stand_probability = 0.15
+        longitudinal_probability = 0.35
+        turn_probability = 0.15
+        forward_turn_probability = 0.20
+        lateral_probability = 0.15
+
+        longitudinal_speeds = [-0.3, 0.3, 0.6]
+        longitudinal_weights = [0.50, 0.25, 0.25]
+        lateral_speeds = [-0.3, 0.3]
+        lateral_weights = [0.50, 0.50]
+        turn_heading_offsets = [-3.1415926, -1.5707963, 1.5707963, 3.1415926]
+        turn_heading_weights = [0.15, 0.35, 0.35, 0.15]
+        forward_turn_speed = 0.3
+        forward_turn_heading_offsets = [-1.5707963, 1.5707963]
+
+        continuous_forward_speed_range = [0.10, 0.60]
+        continuous_backward_speed_range = [0.10, 0.30]
+        continuous_lateral_speed_range = [0.10, 0.30]
+        continuous_heading_offset_range = [0.20, 3.1415926]
+
+    class noise(PaiCfg.noise):
+        add_noise = False
+        noise_level = 0.0
+
+    class domain_rand(PaiCfg.domain_rand):
+        randomize_friction = True
+        friction_range = [0.6, 0.6]
+        randomize_base_mass = False
+        added_mass_range = [0.0, 0.0]
+        push_robots = False
+        push_interval_s = 8.0
+        max_push_vel_xy = 0.0
+        max_push_ang_vel = 0.0
+        dynamic_randomization = 0.0
+        randomize_action_delay = False
+        action_delay_range = [0.0, 0.0]
+
+    class evaluation:
+        seed = 123145
+        render = False
+        export_policy = False
+        scheduled_push = False
+        push_warmup_s = 2.0
+
+        cases = (
+            ("stand", 0.0, 0.0, 0.0),
+            ("forward_slow", 0.3, 0.0, 0.0),
+            ("forward_fast", 0.6, 0.0, 0.0),
+            ("backward", -0.3, 0.0, 0.0),
+            ("left", 0.0, 0.3, 0.0),
+            ("right", 0.0, -0.3, 0.0),
+            ("turn_left", 0.0, 0.0, 1.5707963),
+            ("turn_right", 0.0, 0.0, -1.5707963),
+            ("turn_around", 0.0, 0.0, 3.1415926),
+            ("forward_turn_left", 0.3, 0.0, 1.5707963),
+            ("forward_turn_right", 0.3, 0.0, -1.5707963),
+        )
+        interpolation_cases = (
+            ("forward_015", 0.15, 0.0, 0.0),
+            ("forward_045", 0.45, 0.0, 0.0),
+            ("backward_015", -0.15, 0.0, 0.0),
+            ("left_015", 0.0, 0.15, 0.0),
+            ("right_015", 0.0, -0.15, 0.0),
+        )
+        command_switch_periods_s = [2.0, 4.0, 8.0]
+        friction_grid = [0.4, 0.5, 0.6, 0.8, 1.0]
 
 
 # 训练任务配置
@@ -369,3 +449,11 @@ class PaiCfgMyPPO(LeggedRobotCfgPPO):
         load_run = -1  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and checkpoint
+
+
+class PaiCfgStage1PPO(PaiCfgPPO):
+    """复用原始 PPO 和 MLP，只隔离 Stage 1 日志。"""
+
+    class runner(PaiCfgPPO.runner):
+        experiment_name = "Pai_stage1"
+        run_name = "stage1_a1_discrete"
