@@ -576,11 +576,6 @@ def play(args):
             f"Friction range: {env.cfg.domain_rand.friction_range}; "
             "fixed when each environment is created.\n"
         )
-        if evaluation_cfg is not None:
-            report.write(
-                f"Configured friction grid: {list(evaluation_cfg.friction_grid)}; "
-                "run once per fixed friction value.\n"
-            )
         report.write(
             f"Scheduled pushes: {scheduled_push}; warmup={push_warmup_s}s; "
             f"interval={env.cfg.domain_rand.push_interval_s}s; "

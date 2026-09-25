@@ -38,7 +38,6 @@ from .pai.pai_config import (
     PaiCfgMyPPO,
     PaiCfgPPO,
     PaiCfgStage1,
-    PaiCfgStage1PPO,
 )
 from .pai.pai_env import PaiFreeEnv
 
@@ -49,5 +48,5 @@ task_registry.register(
     "pai_stage1",
     PaiFreeEnv,
     PaiCfgStage1(),
-    PaiCfgStage1PPO(),
+    PaiCfgPPO(),
 )

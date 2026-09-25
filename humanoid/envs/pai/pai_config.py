@@ -288,13 +288,13 @@ class PaiCfg(LeggedRobotCfg):
 
 
 class PaiCfgStage1(PaiCfg):
-    """Stage 1 环境配置；默认值对应 A1 离散指令训练。"""
+    """Stage 1 环境配置；当前值对应 A 的最终混合指令训练。"""
 
     class commands(PaiCfg.commands):
         sampling_mode = "categorical"
         resampling_time = 8.0
         command_deadzone = 0.05
-        continuous_fraction = 0.0
+        continuous_fraction = 0.50
 
         stand_probability = 0.15
         longitudinal_probability = 0.35
@@ -326,7 +326,7 @@ class PaiCfgStage1(PaiCfg):
         randomize_base_mass = False
         added_mass_range = [0.0, 0.0]
         push_robots = False
-        push_interval_s = 8.0
+        push_interval_s = 4.0
         max_push_vel_xy = 0.0
         max_push_ang_vel = 0.0
         dynamic_randomization = 0.0
@@ -361,7 +361,6 @@ class PaiCfgStage1(PaiCfg):
             ("right_015", 0.0, -0.15, 0.0),
         )
         command_switch_periods_s = [2.0, 4.0, 8.0]
-        friction_grid = [0.4, 0.5, 0.6, 0.8, 1.0]
 
 
 # 训练任务配置
@@ -449,11 +448,3 @@ class PaiCfgMyPPO(LeggedRobotCfgPPO):
         load_run = -1  # -1 = last run
         checkpoint = -1  # -1 = last saved model
         resume_path = None  # updated from load_run and checkpoint
-
-
-class PaiCfgStage1PPO(PaiCfgPPO):
-    """复用原始 PPO 和 MLP，只隔离 Stage 1 日志。"""
-
-    class runner(PaiCfgPPO.runner):
-        experiment_name = "Pai_stage1"
-        run_name = "stage1_a1_discrete"
