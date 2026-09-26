@@ -322,21 +322,21 @@ class PaiCfgStage1(PaiCfg):
 
     class domain_rand(PaiCfg.domain_rand):
         randomize_friction = True
-        friction_range = [0.6, 0.6]
+        friction_range = [0.05, 2.5]
         randomize_base_mass = False
         added_mass_range = [0.0, 0.0]
-        push_robots = False
-        push_interval_s = 4.0
-        max_push_vel_xy = 0.0
-        max_push_ang_vel = 0.0
+        push_robots = True
+        push_interval_s = 3.0
+        max_push_vel_xy = 0.30
+        max_push_ang_vel = 0.60
         dynamic_randomization = 0.0
         randomize_action_delay = False
         action_delay_range = [0.0, 0.0]
 
     class evaluation:
         seed = 123145
-        render = False
-        export_policy = False
+        render = True
+        export_policy = True
         scheduled_push = False
         push_warmup_s = 2.0
 
