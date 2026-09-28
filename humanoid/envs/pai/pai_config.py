@@ -161,7 +161,7 @@ class PaiCfg(LeggedRobotCfg):
         # action_scale = 0.5
         # 每个策略动作维持 20 个物理步；0.001 × 20 = 0.02 秒，即 50 Hz。
         # decimation = 10  # 100hz
-        decimation = 20  # 50 Hz 策略频率；物理仿真仍为 1000 Hz
+        decimation = 10  # 50 Hz 策略频率；物理仿真仍为 1000 Hz
 
     class sim(LeggedRobotCfg.sim):
         # PhysX 物理步长、子步数和竖直轴；up_axis=1 在本项目表示 z 轴向上。
