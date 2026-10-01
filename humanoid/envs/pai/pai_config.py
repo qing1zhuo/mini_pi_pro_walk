@@ -229,7 +229,7 @@ class PaiCfg(LeggedRobotCfg):
         cycle_time = 0.4  # 左右交替步态的完整周期，单位 s
         # True 只把非终止项的总和截到 >=0，随后仍会单独加入终止惩罚。
         only_positive_rewards = True
-        # 跟踪公式实际为 exp(-((误差/a)^2)/a)，误差先按 1+|指令| 归一化。
+        # 跟踪公式为 exp(-(误差/a)^2)，误差先按 1+|指令| 归一化。
         tracking_sigma_ang = 0.1  # yaw 角速度跟踪的 a；越小越严格
         tracking_sigma_lin = 0.1  # x/y 线速度跟踪的 a；越小越严格
         max_contact_force = 100  # 足部接触力超过此阈值的部分被惩罚，单位 N
@@ -293,10 +293,19 @@ class PaiCfgPPO(LeggedRobotCfgPPO):
     runner_class_name = "OnPolicyRunner"  # DWLOnPolicyRunner
 
     class policy:
-        # 12 维高斯动作分布的初始标准差，以及 Actor/Critic 的隐藏层宽度。
-        # 当前输入/输出为 Actor 705→512→256→128→12，Critic 219→768→256→128→1。
+        # Actor 将 705 维历史恢复为 15×47 的序列，Critic 继续使用 219 维 MLP。
         init_noise_std = 1.0
-        actor_hidden_dims = [512, 256, 128]
+
+        frame_stack = 15
+        num_single_obs = 47
+        transformer_dim = 128
+        transformer_heads = 4
+        transformer_layers = 2
+        transformer_ff_dim = 512
+        transformer_dropout = 0.0
+
+        # Transformer 输出与最新帧 embedding 拼接后的动作头。
+        actor_hidden_dims = [256, 128]
         critic_hidden_dims = [768, 256, 128]
 
     class algorithm(LeggedRobotCfgPPO.algorithm):

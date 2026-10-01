@@ -688,4 +688,4 @@ class PaiFreeEnv(LeggedRobot):
         """ shorthand helper for negative squared exponential e^(-(x/a)^2)
             a: range of x
         """
-        return torch.exp(-torch.square(x/a)/a)
+        return torch.exp(-torch.square(x / a))
