@@ -243,8 +243,9 @@ def get_args():
 def export_policy_as_jit(actor_critic, path):
     os.makedirs(path, exist_ok=True)
     path = os.path.join(path, "policy_torch.pt")
-    model = copy.deepcopy(actor_critic.actor).to("cpu")
-    traced_script_module = torch.jit.script(model)
+    model = copy.deepcopy(actor_critic).to("cpu")
+    dummy_input = torch.randn(1, 705)
+    traced_script_module = torch.jit.trace(model, dummy_input)
     traced_script_module.save(path)
 
 def export_policy_to_onnx(actor_critic, path):
@@ -254,7 +255,7 @@ def export_policy_to_onnx(actor_critic, path):
 
     os.makedirs(path, exist_ok=True)
     model_path = os.path.join(path, "policy_onnx.onnx")
-    model = copy.deepcopy(actor_critic.actor).to("cpu")
+    model = copy.deepcopy(actor_critic).to("cpu")
     model.eval()  # 设置模型为评估模式
 
     # 创建示例输入
