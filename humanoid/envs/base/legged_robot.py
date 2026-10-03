@@ -346,6 +346,9 @@ class LeggedRobot(BaseTask):
             env_ids (List[int]): Environments ids for which new commands are needed
         """
         self.commands[env_ids, 0] = torch_rand_float(self.command_ranges["lin_vel_x"][0], self.command_ranges["lin_vel_x"][1], (len(env_ids), 1), device=self.device).squeeze(1)
+        # 30% 的环境采样高速前进命令，其余保留原范围的均匀采样。
+        fast_env_ids = env_ids[torch.rand(len(env_ids), device=self.device) < 0.3]
+        self.commands[fast_env_ids, 0] = torch_rand_float(0.45, 0.6, (len(fast_env_ids), 1), device=self.device).squeeze(1)
         self.commands[env_ids, 1] = torch_rand_float(self.command_ranges["lin_vel_y"][0], self.command_ranges["lin_vel_y"][1], (len(env_ids), 1), device=self.device).squeeze(1)
         if self.cfg.commands.heading_command:
             self.commands[env_ids, 3] = torch_rand_float(self.command_ranges["heading"][0], self.command_ranges["heading"][1], (len(env_ids), 1), device=self.device).squeeze(1)
