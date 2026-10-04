@@ -225,7 +225,7 @@ class PaiCfg(LeggedRobotCfg):
         min_dist = 0.15  # 两脚/两膝的最小期望水平间距，单位 m
         max_dist = 0.2  # 两脚最大期望间距；两膝函数将此值乘 2，单位 m
         target_joint_pos_scale = 0.08  # 正弦参考步态的基础关节摆幅，单位 rad
-        target_feet_height = 0.03  # 摆动脚累计抬高量的目标值，单位 m
+        target_feet_height = 0.02  # 摆动脚累计抬高量的目标值，单位 m
         cycle_time = 0.4  # 左右交替步态的完整周期，单位 s
         # True 只把非终止项的总和截到 >=0，随后仍会单独加入终止惩罚。
         only_positive_rewards = True
@@ -251,7 +251,7 @@ class PaiCfg(LeggedRobotCfg):
             vel_mismatch_exp = 0.5  # 鼓励较小的竖直线速度和 x/y 角速度
             low_speed =0.05  # |x 指令|>0.1 时，根据前进速度大小/方向给奖或扣分
             track_vel_hard = 0.2  # 对线速度及 yaw 误差再加指数奖励与线性扣分
-            default_hip_roll_joint_pos = 4  # 鼓励两侧髋 roll、踝 roll 关节接近零角
+            default_hip_roll_joint_pos = 6  # 鼓励两侧髋 roll、踝 roll 关节接近零角
             default_thigh_joint_pos = 1.0  # 鼓励两侧 thigh 关节接近零角
             default_ankle_roll_pos = 0.5  # 鼓励两只脚的 roll/pitch 欧拉角接近零
             orientation = 0.5  # 鼓励机身 roll/pitch 和水平投影重力较小
