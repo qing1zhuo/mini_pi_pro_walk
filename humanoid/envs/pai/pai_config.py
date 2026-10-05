@@ -293,10 +293,11 @@ class PaiCfgPPO(LeggedRobotCfgPPO):
     runner_class_name = "OnPolicyRunner"  # DWLOnPolicyRunner
 
     class policy:
-        # 12 维高斯动作分布的初始标准差，以及 Actor/Critic 的隐藏层宽度。
-        # 当前输入/输出为 Actor 705→512→256→128→12，Critic 219→768→256→128→1。
+        # Actor: 705→512→512→256→256→128→12，5 个 LayerNorm，第 2、4 层残差连接。
+        # Critic 保持 219→768→256→128→1；动作标准差为独立可训练参数。
         init_noise_std = 1.0
-        actor_hidden_dims = [512, 256, 128]
+        actor_hidden_dims = [512, 512, 256, 256, 128]
+        actor_layer_norm_eps = 1e-5
         critic_hidden_dims = [768, 256, 128]
 
     class algorithm(LeggedRobotCfgPPO.algorithm):

@@ -29,18 +29,33 @@
 #
 # Copyright (c) 2024 Beijing RobotEra TECHNOLOGY CO.,LTD. All rights reserved.
 
+import copy
 import torch
 import torch.nn as nn
 from torch.distributions import Normal
+
+class _ResidualLayer(nn.Module):
+    def __init__(self, dim, activation, layer_norm_eps):
+        super().__init__()
+        self.branch = nn.Sequential(
+            nn.LayerNorm(dim, eps=layer_norm_eps),
+            copy.deepcopy(activation),
+            nn.Linear(dim, dim),
+        )
+
+    def forward(self, x):
+        return x + self.branch(x)
+
 
 class ActorCritic(nn.Module):
     def __init__(self,  num_actor_obs,
                         num_critic_obs,
                         num_actions,
-                        actor_hidden_dims=[256, 256, 256],
+                        actor_hidden_dims=[512, 512, 256, 256, 128],
                         critic_hidden_dims=[256, 256, 256],
                         init_noise_std=1.0,
                         activation = nn.ELU(),
+                        actor_layer_norm_eps=1e-5,
                         **kwargs):
         if kwargs:
             print("ActorCritic.__init__ got unexpected arguments, which will be ignored: " + str([key for key in kwargs.keys()]))
@@ -49,16 +64,24 @@ class ActorCritic(nn.Module):
 
         mlp_input_dim_a = num_actor_obs
         mlp_input_dim_c = num_critic_obs
-        # Policy
+        # Five hidden layers; layers 2 and 4 use same-width residual branches.
+        if (len(actor_hidden_dims) != 5
+                or actor_hidden_dims[0] != actor_hidden_dims[1]
+                or actor_hidden_dims[2] != actor_hidden_dims[3]):
+            raise ValueError("actor_hidden_dims must have the form [a, a, b, b, c].")
+
         actor_layers = []
-        actor_layers.append(nn.Linear(mlp_input_dim_a, actor_hidden_dims[0]))
-        actor_layers.append(activation)
-        for l in range(len(actor_hidden_dims)):
-            if l == len(actor_hidden_dims) - 1:
-                actor_layers.append(nn.Linear(actor_hidden_dims[l], num_actions))
+        for i, hidden_dim in enumerate(actor_hidden_dims):
+            if i in (1, 3):
+                actor_layers.append(_ResidualLayer(hidden_dim, activation, actor_layer_norm_eps))
             else:
-                actor_layers.append(nn.Linear(actor_hidden_dims[l], actor_hidden_dims[l + 1]))
-                actor_layers.append(activation)
+                actor_layers.extend([
+                    nn.Linear(mlp_input_dim_a, hidden_dim),
+                    nn.LayerNorm(hidden_dim, eps=actor_layer_norm_eps),
+                    copy.deepcopy(activation),
+                ])
+            mlp_input_dim_a = hidden_dim
+        actor_layers.append(nn.Linear(mlp_input_dim_a, num_actions))
         self.actor = nn.Sequential(*actor_layers)
 
         # Value function
