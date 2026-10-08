@@ -247,11 +247,11 @@ class PaiCfg(LeggedRobotCfg):
             knee_distance = 0.16  # 鼓励两膝的水平距离处于 [min_dist, 2×max_dist]
             feet_contact_forces = -0.001  # 惩罚足部接触力超过 max_contact_force 的部分
             tracking_lin_vel = 10  # 鼓励机身 x/y 速度跟踪线速度指令
-            tracking_ang_vel = 20  # 鼓励机身 z 轴角速度跟踪 yaw 指令
+            tracking_ang_vel = 30  # 鼓励机身 z 轴角速度跟踪 yaw 指令
             vel_mismatch_exp = 0.5  # 鼓励较小的竖直线速度和 x/y 角速度
             low_speed =0.05  # |x 指令|>0.1 时，根据前进速度大小/方向给奖或扣分
             track_vel_hard = 0.2  # 对线速度及 yaw 误差再加指数奖励与线性扣分
-            default_hip_roll_joint_pos = 6  # 鼓励两侧髋 roll、踝 roll 关节接近零角
+            default_hip_roll_joint_pos = 4  # 鼓励两侧髋 roll、踝 roll 关节接近零角
             default_thigh_joint_pos = 1.0  # 鼓励两侧 thigh 关节接近零角
             default_ankle_roll_pos = 0.5  # 鼓励两只脚的 roll/pitch 欧拉角接近零
             orientation = 0.5  # 鼓励机身 roll/pitch 和水平投影重力较小
