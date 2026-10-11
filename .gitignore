@@ -17,8 +17,8 @@ venv/
 
 # Experiment tracking and generated media
 wandb/
-videos/
-logs/*/*_*/
+
+*.pt
 
 # Runtime state dump created when scripts are launched from humanoid/
 /humanoid/train_robot_states.csv
