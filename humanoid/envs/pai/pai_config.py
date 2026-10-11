@@ -190,7 +190,7 @@ class PaiCfg(LeggedRobotCfg):
     class domain_rand:
         # 创建环境时按环境随机设置机器人碰撞形状的摩擦系数。
         randomize_friction = True
-        friction_range = [0.1, 2.0]
+        friction_range = [0.1, 1.0]
         # 创建环境时给底座刚体质量加一个均匀采样的 kg 偏移。
         randomize_base_mass = True
         added_mass_range = [-1.0, 1.0]
