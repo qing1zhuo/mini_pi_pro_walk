@@ -300,7 +300,7 @@ class PaiCfgPPO(LeggedRobotCfgPPO):
         num_single_obs = 47
         transformer_dim = 128
         transformer_heads = 4
-        transformer_layers = 2
+        transformer_layers = 4
         transformer_ff_dim = 512
         transformer_dropout = 0.0
 
