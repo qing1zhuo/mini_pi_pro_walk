@@ -523,15 +523,17 @@ class PaiFreeEnv(LeggedRobot):
 
         return (lin_vel_error_exp + ang_vel_error_exp) / 2.0 - linear_error
 
-    def _reward_tracking_lin_vel(self):
-        """
-        Tracks linear velocity commands along the xy axes.
-        Calculates a reward based on how closely the robot's linear velocity matches the commanded values.
-        """
-        error = self.commands[:, :2] - self.base_lin_vel[:, :2]
-        error *= 1.0 / (1.0 + torch.abs(self.commands[:, :2]))
-        rew = self._neg_sqrd_exp(error, a=self.cfg.rewards.tracking_sigma_lin).sum(dim=1)/2
-        return rew
+    def _reward_tracking_lin_vel_x(self):
+        """Tracks linear velocity commands along the x axis."""
+        error = self.commands[:, 0] - self.base_lin_vel[:, 0]
+        error *= 1.0 / (1.0 + torch.abs(self.commands[:, 0]))
+        return self._neg_sqrd_exp(error, a=self.cfg.rewards.tracking_sigma_lin)
+
+    def _reward_tracking_lin_vel_y(self):
+        """Tracks linear velocity commands along the y axis."""
+        error = self.commands[:, 1] - self.base_lin_vel[:, 1]
+        error *= 1.0 / (1.0 + torch.abs(self.commands[:, 1]))
+        return self._neg_sqrd_exp(error, a=self.cfg.rewards.tracking_sigma_lin)
 
     def _reward_tracking_ang_vel(self):
         """

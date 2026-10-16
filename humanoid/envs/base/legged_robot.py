@@ -424,7 +424,9 @@ class LeggedRobot(BaseTask):
             env_ids (List[int]): ids of environments being reset
         """
         # 线速度跟踪足够好时，扩大前后速度指令的采样范围
-        if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]:
+        tracking_sum = self.episode_sums["tracking_lin_vel_x"][env_ids] + self.episode_sums["tracking_lin_vel_y"][env_ids]
+        tracking_scale = self.reward_scales["tracking_lin_vel_x"] + self.reward_scales["tracking_lin_vel_y"]
+        if torch.mean(tracking_sum) / self.max_episode_length > 0.8 * tracking_scale:
             self.command_ranges["lin_vel_x"][0] = np.clip(self.command_ranges["lin_vel_x"][0] - 0.5, -self.cfg.commands.max_curriculum, 0.)
             self.command_ranges["lin_vel_x"][1] = np.clip(self.command_ranges["lin_vel_x"][1] + 0.5, 0., self.cfg.commands.max_curriculum)
 
