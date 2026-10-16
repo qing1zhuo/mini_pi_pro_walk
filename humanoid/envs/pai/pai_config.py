@@ -215,7 +215,7 @@ class PaiCfg(LeggedRobotCfg):
         class ranges:
             # x/y 速度单位 m/s；yaw 角速度单位 rad/s；目标朝向单位 rad。
             lin_vel_x = [-0.6, 0.6]  # min max [m/s]
-            lin_vel_y = [-0.45, 0.45]  # min max [m/s]
+            lin_vel_y = [-0.3, 0.3]  # min max [m/s]
             ang_vel_yaw = [-0.3, 0.3]  # min max [rad/s]
             heading = [-3.14, 3.14]
 
