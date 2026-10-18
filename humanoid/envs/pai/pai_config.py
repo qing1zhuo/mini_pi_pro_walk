@@ -214,7 +214,7 @@ class PaiCfg(LeggedRobotCfg):
 
         class ranges:
             # x/y 速度单位 m/s；yaw 角速度单位 rad/s；目标朝向单位 rad。
-            lin_vel_x = [-0.3, 0.6]  # min max [m/s]
+            lin_vel_x = [-0.6, 0.6]  # min max [m/s]
             lin_vel_y = [-0.3, 0.3]  # min max [m/s]
             ang_vel_yaw = [-0.3, 0.3]  # min max [rad/s]
             heading = [-3.14, 3.14]
@@ -246,8 +246,8 @@ class PaiCfg(LeggedRobotCfg):
             feet_distance = 0.16  # 鼓励两脚的水平距离处于 [min_dist, max_dist]
             knee_distance = 0.16  # 鼓励两膝的水平距离处于 [min_dist, 2×max_dist]
             feet_contact_forces = -0.001  # 惩罚足部接触力超过 max_contact_force 的部分
-            tracking_lin_vel = 10  # 鼓励机身 x/y 速度跟踪线速度指令
-            tracking_ang_vel = 30  # 鼓励机身 z 轴角速度跟踪 yaw 指令
+            tracking_lin_vel = 15  # 鼓励机身 x/y 速度跟踪线速度指令
+            tracking_ang_vel = 25  # 鼓励机身 z 轴角速度跟踪 yaw 指令
             vel_mismatch_exp = 0.5  # 鼓励较小的竖直线速度和 x/y 角速度
             low_speed =0.05  # |x 指令|>0.1 时，根据前进速度大小/方向给奖或扣分
             track_vel_hard = 0.2  # 对线速度及 yaw 误差再加指数奖励与线性扣分
