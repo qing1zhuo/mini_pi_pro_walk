@@ -224,6 +224,10 @@ class PaiCfg(LeggedRobotCfg):
         base_height_target = 0.3453  # 机身相对参考支撑脚的目标高度，单位 m
         min_dist = 0.15  # 两脚/两膝的最小期望水平间距，单位 m
         max_dist = 0.2  # 两脚最大期望间距；两膝函数将此值乘 2，单位 m
+        turn_min_dist = 0.18  # 低速自转时两脚最小期望水平间距，单位 m；不影响膝距
+        turn_max_dist = 0.22  # 低速自转时两脚最大期望水平间距，单位 m
+        turn_lin_vel_threshold = 0.05  # 平移指令范数低于此值且转向指令达标时使用自转区间，单位 m/s
+        turn_ang_vel_threshold = 0.1  # yaw 角速度指令绝对值高于此值才判定自转，单位 rad/s
         target_joint_pos_scale = 0.08  # 正弦参考步态的基础关节摆幅，单位 rad
         target_feet_height = 0.02  # 摆动脚累计抬高量的目标值，单位 m
         cycle_time = 0.4  # 左右交替步态的完整周期，单位 s
@@ -243,7 +247,7 @@ class PaiCfg(LeggedRobotCfg):
             feet_air_time = 1.0  # 接触过滤信号出现时奖励之前累计的离地时间，上限 0.5 s
             # 名称意图是脚底防滑；实现取脚刚体状态 10:12，即 x/y 角速度而非线速度。
             foot_slip = -0.05  # 接触时惩罚上述角速度范数的平方根
-            feet_distance = 0.16  # 鼓励两脚的水平距离处于 [min_dist, max_dist]
+            feet_distance = 0.16  # 普通运动使用 [min_dist, max_dist]，低速自转使用 [turn_min_dist, turn_max_dist]
             knee_distance = 0.16  # 鼓励两膝的水平距离处于 [min_dist, 2×max_dist]
             feet_contact_forces = -0.001  # 惩罚足部接触力超过 max_contact_force 的部分
             tracking_lin_vel = 15  # 鼓励机身 x/y 速度跟踪线速度指令

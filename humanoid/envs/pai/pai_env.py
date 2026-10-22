@@ -362,8 +362,15 @@ class PaiFreeEnv(LeggedRobot):
         """
         foot_pos = self.rigid_state[:, self.feet_indices, :2]
         foot_dist = torch.norm(foot_pos[:, 0, :] - foot_pos[:, 1, :], dim=1)
-        fd = self.cfg.rewards.min_dist
-        max_df = self.cfg.rewards.max_dist
+        # 按各环境的运动指令判定低速自转；站立仍使用默认区间。
+        turning = (
+            torch.norm(self.commands[:, :2], dim=1)
+            < self.cfg.rewards.turn_lin_vel_threshold
+        ) & (
+            torch.abs(self.commands[:, 2]) > self.cfg.rewards.turn_ang_vel_threshold
+        )
+        fd = torch.where(turning, self.cfg.rewards.turn_min_dist, self.cfg.rewards.min_dist)
+        max_df = torch.where(turning, self.cfg.rewards.turn_max_dist, self.cfg.rewards.max_dist)
         d_min = torch.clamp(foot_dist - fd, -0.5, 0.0)
         d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
         return (
