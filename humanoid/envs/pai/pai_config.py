@@ -224,10 +224,14 @@ class PaiCfg(LeggedRobotCfg):
         base_height_target = 0.3453  # 机身相对参考支撑脚的目标高度，单位 m
         min_dist = 0.18  # 两脚/两膝的最小期望水平间距，单位 m
         max_dist = 0.22  # 两脚最大期望间距；两膝函数将此值乘 2，单位 m
+
+        # 以下config不用
         turn_min_dist = 0.18  # 低速自转时两脚最小期望水平间距，单位 m；不影响膝距
         turn_max_dist = 0.22  # 低速自转时两脚最大期望水平间距，单位 m
-        turn_lin_vel_threshold = 1000  # 平移指令范数低于此值且转向指令达标时使用自转区间，单位 m/s
-        turn_ang_vel_threshold = 0.1  # yaw 角速度指令绝对值高于此值才判定自转，单位 rad/s
+        turn_lin_vel_threshold = 0  # 平移指令范数低于此值且转向指令达标时使用自转区间，单位 m/s
+        turn_ang_vel_threshold = 1000  # yaw 角速度指令绝对值高于此值才判定自转，单位 rad/s
+        # 以上config不用
+
         target_joint_pos_scale = 0.08  # 正弦参考步态的基础关节摆幅，单位 rad
         target_feet_height = 0.02  # 摆动脚累计抬高量的目标值，单位 m
         cycle_time = 0.4  # 左右交替步态的完整周期，单位 s
