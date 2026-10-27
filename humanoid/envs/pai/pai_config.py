@@ -222,12 +222,12 @@ class PaiCfg(LeggedRobotCfg):
     class rewards:
         # 以下字段是奖励函数内部的目标值和阈值，不是各项在总奖励中的权重。
         base_height_target = 0.3453  # 机身相对参考支撑脚的目标高度，单位 m
-        min_dist = 0.15  # 两脚/两膝的最小期望水平间距，单位 m
-        max_dist = 0.20  # 两脚最大期望间距；两膝函数将此值乘 2，单位 m
+        min_dist = 0.18  # 两脚/两膝的最小期望水平间距，单位 m
+        max_dist = 0.22  # 两脚最大期望间距；两膝函数将此值乘 2，单位 m
 
         lateral_min_dist = 0.18  # 横移时两脚最小期望水平间距，单位 m；不影响膝距
         lateral_max_dist = 0.22  # 横移时两脚最大期望水平间距，单位 m
-        lateral_vel_threshold = 0.10  # |vy 指令| 高于此值时使用横移区间，与 vx/yaw 指令无关，单位 m/s
+        lateral_vel_threshold = 100  # |vy 指令| 高于此值时使用横移区间，与 vx/yaw 指令无关，单位 m/s
 
         target_joint_pos_scale = 0.08  # 正弦参考步态的基础关节摆幅，单位 rad
         target_feet_height = 0.02  # 摆动脚累计抬高量的目标值，单位 m
